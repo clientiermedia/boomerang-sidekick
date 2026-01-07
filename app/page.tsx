@@ -1119,23 +1119,23 @@ export default function ChatPage() {
   }
 
   return (
-    <div className={`flex h-screen w-full ${settings.darkMode ? 'dark bg-gray-900' : 'bg-[#f8f9fa]'}`}>
+    <div className={`flex h-[100dvh] w-full overflow-hidden ${settings.darkMode ? 'dark bg-gray-900' : 'bg-[#f8f9fa]'}`}>
       {/* Main Chat Area */}
-      <div className={`flex-1 flex flex-col min-w-0 w-full relative ${settings.darkMode ? 'bg-gray-900' : 'bg-white'}`}>
+      <div className={`flex-1 flex flex-col min-w-0 w-full relative overflow-hidden ${settings.darkMode ? 'bg-gray-900' : 'bg-white'}`}>
         {/* Floating Action Buttons */}
         {!isSelectionMode && (
-        <div className="fixed top-4 right-4 z-40 flex items-center gap-2">
+        <div className="fixed top-2 right-2 sm:top-4 sm:right-4 z-40 flex items-center gap-1.5 sm:gap-2">
           {/* New Chat Button */}
           <button
             onClick={handleNewConversation}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 shadow-lg ${
+            className={`px-2.5 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 flex items-center gap-1.5 sm:gap-2 shadow-lg ${
               settings.darkMode
                 ? 'bg-[#6c6ccb] hover:bg-[#5c5cbb] text-white'
                 : 'bg-[#6c6ccb] hover:bg-[#5c5cbb] text-white'
             } hover:shadow-xl`}
             title={t.newChat}
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
             </svg>
             <span className="hidden sm:inline">{t.newChat}</span>
@@ -1145,31 +1145,31 @@ export default function ChatPage() {
           <div className="relative" ref={conversationsDropdownRef}>
             <button
               onClick={() => setShowConversationsDropdown(!showConversationsDropdown)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 shadow-lg ${
+              className={`px-2.5 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 flex items-center gap-1.5 sm:gap-2 shadow-lg ${
                 settings.darkMode
                   ? 'bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-700'
                   : 'bg-white hover:bg-gray-50 text-gray-700 border border-gray-200'
               } hover:shadow-xl`}
               title="All conversations"
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
               </svg>
               {filteredConversations.length > 0 && (
-                <span className={`px-2 py-0.5 rounded-full text-xs ${
+                <span className={`px-1.5 sm:px-2 py-0.5 rounded-full text-xs ${
                   settings.darkMode ? 'bg-gray-700 text-gray-200' : 'bg-gray-100 text-gray-700'
                 }`}>
                   {filteredConversations.length}
                 </span>
               )}
-              <svg className={`w-4 h-4 transition-transform ${showConversationsDropdown ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className={`w-3.5 h-3.5 sm:w-4 sm:h-4 transition-transform ${showConversationsDropdown ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
               </svg>
             </button>
 
             {/* Full Conversations Dropdown */}
             {showConversationsDropdown && (
-              <div className={`absolute top-full right-0 mt-2 w-96 max-h-[600px] overflow-y-auto rounded-lg shadow-xl border z-50 ${
+              <div className={`absolute top-full right-0 mt-2 w-[calc(100vw-1rem)] sm:w-96 max-w-[calc(100vw-1rem)] sm:max-w-md max-h-[calc(100vh-8rem)] sm:max-h-[600px] overflow-y-auto rounded-lg shadow-xl border z-50 ${
                 settings.darkMode
                   ? 'bg-gray-800 border-gray-700'
                   : 'bg-white border-gray-200'
@@ -1333,16 +1333,16 @@ export default function ChatPage() {
 
         {/* Selection Mode Banner */}
         {isSelectionMode && (
-          <div className={`flex-shrink-0 border-b px-4 md:px-6 py-3 flex items-center justify-between ${
+          <div className={`flex-shrink-0 border-b px-3 sm:px-4 md:px-6 py-2 sm:py-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0 ${
             settings.darkMode ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-200'
           }`}>
-            <div className="flex items-center gap-4">
-              <span className={`text-sm font-medium ${settings.darkMode ? 'text-gray-200' : 'text-gray-700'}`}>
+            <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
+              <span className={`text-xs sm:text-sm font-medium ${settings.darkMode ? 'text-gray-200' : 'text-gray-700'}`}>
                 {t.conversationsSelected(selectedConversationIds.size)}
               </span>
               <button
                 onClick={selectedConversationIds.size === filteredConversations.length ? deselectAllConversations : selectAllConversations}
-                className={`text-sm px-3 py-1 rounded-md transition-colors ${
+                className={`text-xs sm:text-sm px-2 sm:px-3 py-1 rounded-md transition-colors ${
                   settings.darkMode
                     ? 'text-gray-300 hover:bg-gray-700'
                     : 'text-gray-600 hover:bg-gray-100'
@@ -1351,11 +1351,11 @@ export default function ChatPage() {
                 {selectedConversationIds.size === filteredConversations.length ? t.deselectAll : t.selectAll}
               </button>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
               <button
                 onClick={handleBulkArchive}
                 disabled={selectedConversationIds.size === 0}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 ${
+                className={`px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 flex items-center gap-1.5 sm:gap-2 ${
                   selectedConversationIds.size === 0
                     ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                     : settings.darkMode
@@ -1363,15 +1363,15 @@ export default function ChatPage() {
                       : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
                 }`}
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
                 </svg>
-                {t.archive}
+                <span className="hidden xs:inline">{t.archive}</span>
               </button>
               <button
                 onClick={handleBulkDelete}
                 disabled={selectedConversationIds.size === 0}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 ${
+                className={`px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 flex items-center gap-1.5 sm:gap-2 ${
                   selectedConversationIds.size === 0
                     ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                     : settings.darkMode
@@ -1379,14 +1379,14 @@ export default function ChatPage() {
                       : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
                 }`}
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                 </svg>
-                {t.delete}
+                <span className="hidden xs:inline">{t.delete}</span>
               </button>
               <button
                 onClick={exitSelectionMode}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                className={`px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 ${
                   settings.darkMode
                     ? 'text-gray-300 hover:bg-gray-700'
                     : 'text-gray-600 hover:bg-gray-100'
@@ -1482,7 +1482,7 @@ export default function ChatPage() {
         {/* Chat Messages Area */}
         {!isSelectionMode && (
         <div 
-          className={`flex-1 overflow-y-auto overflow-x-hidden px-3 md:px-4 py-4 md:py-6 relative ${
+          className={`flex-1 overflow-y-auto overflow-x-hidden px-3 md:px-4 py-2 sm:py-4 md:py-6 relative min-h-0 ${
             settings.darkMode 
               ? 'bg-gray-900' 
               : ''
@@ -1503,7 +1503,7 @@ export default function ChatPage() {
           {/* SVG Background Panel - positioned top right */}
           {!settings.darkMode && (
             <div 
-              className="absolute right-0 pointer-events-none"
+              className="hidden md:block absolute right-0 pointer-events-none"
               style={{
                 width: '780px',
                 height: 'auto',
@@ -1524,16 +1524,16 @@ export default function ChatPage() {
           <div className="max-w-3xl mx-auto space-y-3 md:space-y-4">
             {/* Suggested Questions - Show only when no messages or just initial message */}
             {messages.length <= 1 && !isLoading && !isLoadingPreviousSession && (
-              <div className="space-y-3">
-                <p className={`text-sm font-medium text-center ${settings.darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+              <div className="hidden md:block space-y-2 sm:space-y-3 px-1">
+                <p className={`text-xs sm:text-sm font-medium text-center ${settings.darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                   {t.suggestedQuestions}
                 </p>
-                <div className="flex flex-wrap gap-2 justify-center">
+                <div className="flex flex-wrap gap-1.5 sm:gap-2 justify-center">
                   {suggestedQuestions.map((question, idx) => (
                     <button
                       key={idx}
                       onClick={() => handleSuggestedQuestion(question)}
-                      className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+                      className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl text-xs sm:text-sm font-medium transition-all ${
                         settings.darkMode
                           ? 'bg-gray-700 text-gray-200 hover:bg-gray-600'
                           : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-200'
@@ -1573,7 +1573,7 @@ export default function ChatPage() {
                 {message.role === 'user' ? (
                   <>
                     {/* User Message - With Card */}
-                    <div className="max-w-[85%] md:max-w-[75%] rounded-xl md:rounded-2xl px-3 md:px-4 py-2 md:py-2.5 shadow-sm bg-[#6c6ccb] text-white">
+                    <div className="max-w-[90%] sm:max-w-[85%] md:max-w-[75%] rounded-xl md:rounded-2xl px-3 md:px-4 py-2 md:py-2.5 shadow-sm bg-[#6c6ccb] text-white">
                       {editingMessageId === message.id ? (
                         <div className="space-y-2">
                           <textarea
@@ -1644,7 +1644,7 @@ export default function ChatPage() {
                 ) : (
                   <>
                     {/* Assistant Message - With Card */}
-                    <div className={`max-w-[85%] md:max-w-[75%] rounded-xl md:rounded-2xl px-3 md:px-4 py-2 md:py-2.5 shadow-sm ${
+                    <div className={`max-w-[90%] sm:max-w-[85%] md:max-w-[75%] rounded-xl md:rounded-2xl px-3 md:px-4 py-2 md:py-2.5 shadow-sm ${
                       settings.darkMode
                         ? 'bg-gray-800 text-gray-100 border border-gray-700'
                         : 'bg-white text-gray-900 border border-gray-100'
@@ -1732,13 +1732,13 @@ export default function ChatPage() {
 
         {/* Input Area */}
         {!isSelectionMode && (
-        <div className={`flex-shrink-0 border-t px-3 md:px-6 py-3 md:py-4 ${
+        <div className={`flex-shrink-0 border-t px-3 md:px-6 py-2.5 sm:py-3 md:py-4 safe-area-inset-bottom ${
           settings.darkMode 
             ? 'bg-gray-800 border-gray-700' 
             : 'bg-white border-gray-100'
         }`}>
           <div className="max-w-3xl mx-auto">
-            <div className="flex items-center gap-2 md:gap-3">
+            <div className="flex items-end gap-2 sm:gap-3">
               <div className="flex-1 relative">
                 <textarea
                   ref={inputRef}
@@ -1746,7 +1746,7 @@ export default function ChatPage() {
                   onChange={(e) => setInputValue(e.target.value)}
                   onKeyDown={handleKeyDown}
                   placeholder={t.typeYourMessage}
-                  className={`w-full resize-none border rounded-xl px-3 md:px-4 py-2.5 md:py-3 focus:outline-none focus:ring-2 focus:ring-[#6c6ccb]/20 focus:border-[#6c6ccb] transition-all text-sm leading-relaxed ${
+                  className={`w-full resize-none border rounded-xl px-3 sm:px-4 py-2.5 sm:py-3 focus:outline-none focus:ring-2 focus:ring-[#6c6ccb]/20 focus:border-[#6c6ccb] transition-all text-sm sm:text-base leading-relaxed ${
                     settings.darkMode
                       ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400'
                       : 'bg-gray-50 border-gray-200 text-gray-900 placeholder-gray-400'
@@ -1770,7 +1770,6 @@ export default function ChatPage() {
                 style={{
                   width: '44px',
                   height: '44px',
-                  marginTop: '-6px',
                 }}
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1793,11 +1792,11 @@ export default function ChatPage() {
       </div>
 
       {/* Toast Notifications */}
-      <div className="fixed bottom-4 right-4 z-50 space-y-2">
+      <div className="fixed bottom-2 right-2 sm:bottom-4 sm:right-4 left-2 sm:left-auto z-50 space-y-2 max-w-[calc(100vw-1rem)] sm:max-w-sm">
         {toasts.map((toast) => (
           <div
             key={toast.id}
-            className={`px-4 py-3 rounded-lg shadow-lg flex items-center gap-2 animate-in slide-in-from-right ${
+            className={`px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg shadow-lg flex items-center gap-2 animate-in slide-in-from-right ${
               toast.type === 'success' 
                 ? 'bg-green-500 text-white' 
                 : toast.type === 'error'
@@ -1805,10 +1804,10 @@ export default function ChatPage() {
                   : 'bg-blue-500 text-white'
             }`}
           >
-            <span className="text-sm font-medium">{toast.message}</span>
+            <span className="text-xs sm:text-sm font-medium flex-1">{toast.message}</span>
             <button
               onClick={() => setToasts((prev) => prev.filter((t) => t.id !== toast.id))}
-              className="text-white/80 hover:text-white"
+              className="text-white/80 hover:text-white flex-shrink-0"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -1820,9 +1819,9 @@ export default function ChatPage() {
 
       {/* Settings Modal */}
       {showSettings && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setShowSettings(false)}>
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-3 sm:p-4" onClick={() => setShowSettings(false)}>
           <div
-            className={`rounded-2xl shadow-xl max-w-md w-full p-6 ${
+            className={`rounded-xl sm:rounded-2xl shadow-xl max-w-md w-full p-4 sm:p-6 max-h-[90vh] overflow-y-auto ${
               settings.darkMode ? 'bg-gray-800' : 'bg-white'
             }`}
             onClick={(e) => e.stopPropagation()}
