@@ -339,6 +339,26 @@ export default function ChatPage() {
     currentConversationIdRef.current = currentConversationId
   }, [currentConversationId])
 
+  // Update initial message when language changes
+  useEffect(() => {
+    if (!isMounted || !currentConversationId) return
+    
+    // Only update if this is a new conversation with just the initial message
+    const hasOnlyInitialMessage = messages.length === 1 && 
+      messages[0].role === 'assistant' && 
+      messages[0].id?.startsWith('initial_')
+    
+    if (hasOnlyInitialMessage) {
+      const updatedInitialMessage: Message = {
+        role: 'assistant',
+        content: t.initialMessage,
+        timestamp: Date.now(),
+        id: 'initial_' + Date.now(),
+      }
+      setMessages([updatedInitialMessage])
+    }
+  }, [language, isMounted, currentConversationId, messages, t])
+
   // Save current conversation whenever messages change
   useEffect(() => {
     if (!isMounted || !currentConversationId) return
@@ -1738,7 +1758,7 @@ export default function ChatPage() {
             : 'bg-white border-gray-100'
         }`}>
           <div className="max-w-3xl mx-auto">
-            <div className="flex items-end gap-2 sm:gap-3">
+            <div className="flex items-center gap-2 sm:gap-3">
               <div className="flex-1 relative">
                 <textarea
                   ref={inputRef}
