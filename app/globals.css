@@ -66,8 +66,21 @@ body {
   }
   
   /* Prevent auto-scroll to center on mobile when input is focused */
+  /* Allow pull-to-refresh on mobile */
   html {
     scroll-behavior: auto;
+    overscroll-behavior-y: auto;
+  }
+  
+  /* Allow overscroll on the messages container so pull-to-refresh works */
+  .flex-1.overflow-y-auto {
+    overscroll-behavior-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  /* Ensure body can handle pull-to-refresh */
+  body {
+    overscroll-behavior-y: auto;
   }
 }
 

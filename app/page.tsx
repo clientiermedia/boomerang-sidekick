@@ -174,6 +174,14 @@ export default function ChatPage() {
   const conversationsDropdownRef = useRef<HTMLDivElement>(null)
   // Ref to track current conversation ID for async operations (prevents stale closure issues)
   const currentConversationIdRef = useRef<string | null>(null)
+  // Ref to track if user has sent a message (prevents overwriting with previous session)
+  const hasUserMessageRef = useRef(false)
+  // Ref to track if we've already attempted to load previous session for this conversation
+  const hasAttemptedLoadPreviousSessionRef = useRef(false)
+  // Ref to track if we're currently in handleSend to prevent saveConversation from overwriting
+  const isSendingMessageRef = useRef(false)
+  // Ref to track the latest messages to avoid stale closures
+  const latestMessagesRef = useRef<Message[]>([])
 
   // Generate conversation title from first user message (fallback)
   const generateConversationTitleFallback = (messages: Message[]): string => {
@@ -329,8 +337,26 @@ export default function ChatPage() {
       // Create new conversation
       const newConversationId = 'conv_' + Date.now()
       const newSessionId = generateSessionId()
+      const initialMessages = [getInitialMessage()]
+      
+      // Create the new conversation object
+      const newConversation: Conversation = {
+        id: newConversationId,
+        title: generateConversationTitleFallback(initialMessages),
+        timestamp: Date.now(),
+        messages: initialMessages,
+        sessionId: newSessionId,
+      }
+      
+      // Save the new conversation immediately to localStorage
+      const updatedConversations = [...loadedConversations, newConversation]
+      saveConversationsToStorage(updatedConversations)
+      setConversations(updatedConversations)
+      
       setCurrentConversationId(newConversationId)
+      setMessages(initialMessages)
       setSessionId(newSessionId)
+      localStorage.setItem(CURRENT_CONVERSATION_KEY, newConversationId)
     }
   }, [isMounted])
 
@@ -343,29 +369,90 @@ export default function ChatPage() {
     currentConversationIdRef.current = currentConversationId
   }, [currentConversationId])
 
+  // Ref to track which conversation we've updated the initial message for
+  const initialMessageUpdatedRef = useRef<string | null>(null)
+  // Ref to track the language we last updated for
+  const initialMessageLanguageRef = useRef<string | null>(null)
+
   // Update initial message when language changes
   useEffect(() => {
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/a4da5d3d-11d9-4e33-afa5-dabc3a27a1de',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:373',message:'language effect triggered',data:{isMounted,currentConversationId,messagesCount:messages.length,isSending:isSendingMessageRef.current,hasUserMessage:messages.some(m=>m.role==='user'),alreadyUpdated:initialMessageUpdatedRef.current===currentConversationId,languageUpdated:initialMessageLanguageRef.current===language},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'F'})}).catch(()=>{});
+    // #endregion
+    
     if (!isMounted || !currentConversationId) return
+    
+    // Skip if we're sending a message (don't overwrite user's message)
+    if (isSendingMessageRef.current) {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/a4da5d3d-11d9-4e33-afa5-dabc3a27a1de',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:378',message:'language effect skipped - isSending',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'F'})}).catch(()=>{});
+      // #endregion
+      return
+    }
+    
+    // Skip if we've already updated the initial message for this conversation AND language
+    if (initialMessageUpdatedRef.current === currentConversationId && initialMessageLanguageRef.current === language) {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/a4da5d3d-11d9-4e33-afa5-dabc3a27a1de',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:384',message:'language effect skipped - already updated',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'F'})}).catch(()=>{});
+      // #endregion
+      return
+    }
     
     // Only update if this is a new conversation with just the initial message
     const hasOnlyInitialMessage = messages.length === 1 && 
       messages[0].role === 'assistant' && 
       messages[0].id?.startsWith('initial_')
     
-    if (hasOnlyInitialMessage) {
+    // Also check if the content matches the current language (avoid unnecessary updates)
+    const currentContent = messages[0]?.content || ''
+    const expectedContent = t.initialMessage
+    
+    if (hasOnlyInitialMessage && currentContent !== expectedContent) {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/a4da5d3d-11d9-4e33-afa5-dabc3a27a1de',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:393',message:'language effect updating initial message',data:{hasOnlyInitialMessage,currentContent:currentContent.substring(0,50),expectedContent:expectedContent.substring(0,50)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'F'})}).catch(()=>{});
+      // #endregion
       const updatedInitialMessage: Message = {
         role: 'assistant',
         content: t.initialMessage,
         timestamp: Date.now(),
-        id: 'initial_' + Date.now(),
+        id: messages[0].id || 'initial_' + Date.now(), // Keep same ID to avoid triggering effect again
       }
       setMessages([updatedInitialMessage])
+      initialMessageUpdatedRef.current = currentConversationId
+      initialMessageLanguageRef.current = language
+    } else if (hasOnlyInitialMessage) {
+      // Content already matches, mark as updated
+      initialMessageUpdatedRef.current = currentConversationId
+      initialMessageLanguageRef.current = language
     }
   }, [language, isMounted, currentConversationId, messages, t])
 
+  // Update ref whenever messages change
+  useEffect(() => {
+    latestMessagesRef.current = messages
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/a4da5d3d-11d9-4e33-afa5-dabc3a27a1de',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:393',message:'messages state changed',data:{messagesCount:messages.length,hasUserMessage:messages.some(m=>m.role==='user'),currentConversationId,messageIds:messages.map(m=>m.id)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+    // #endregion
+  }, [messages, currentConversationId])
+
   // Save current conversation whenever messages change
   useEffect(() => {
+    // Check flag FIRST before doing anything else
+    if (isSendingMessageRef.current) {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/a4da5d3d-11d9-4e33-afa5-dabc3a27a1de',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:398',message:'saveConversation skipped - isSending (early check)',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+      // #endregion
+      return
+    }
+    
     if (!isMounted || !currentConversationId) return
+    
+    // Use ref to get latest messages to avoid stale closure - ALWAYS use ref, never messages prop
+    const currentMessages = latestMessagesRef.current.length > 0 ? latestMessagesRef.current : messages
+    
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/a4da5d3d-11d9-4e33-afa5-dabc3a27a1de',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:398',message:'saveConversation effect triggered',data:{isMounted,currentConversationId,messagesCount:messages.length,refMessagesCount:latestMessagesRef.current.length,currentMessagesCount:currentMessages.length,hasUserMessage:currentMessages.some(m=>m.role==='user'),isSending:isSendingMessageRef.current},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+    // #endregion
     
     // Read from localStorage to ensure we have the latest state
     // This prevents race conditions where conversations state might be stale
@@ -375,11 +462,15 @@ export default function ChatPage() {
     // Use fallback title generation for auto-save (AI title will be set separately)
     const conversationData: Conversation = {
       id: currentConversationId,
-      title: conversationIndex >= 0 ? storedConversations[conversationIndex].title : generateConversationTitleFallback(messages),
+      title: conversationIndex >= 0 ? storedConversations[conversationIndex].title : generateConversationTitleFallback(currentMessages),
       timestamp: conversationIndex >= 0 ? storedConversations[conversationIndex].timestamp : Date.now(),
-      messages: messages,
+      messages: currentMessages,
       sessionId: sessionId,
     }
+    
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/a4da5d3d-11d9-4e33-afa5-dabc3a27a1de',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:398',message:'saveConversation about to save',data:{conversationDataMessagesCount:conversationData.messages.length,storedConversationMessagesCount:conversationIndex>=0?storedConversations[conversationIndex].messages.length:0},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+    // #endregion
     
     const updatedConversations = [...storedConversations]
     if (conversationIndex >= 0) {
@@ -398,12 +489,49 @@ export default function ChatPage() {
 
   // Load previous session from API when conversation is loaded
   useEffect(() => {
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/a4da5d3d-11d9-4e33-afa5-dabc3a27a1de',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:422',message:'loadPreviousSession effect triggered',data:{isMounted,currentConversationId,sessionId,hasAttemptedLoad:hasAttemptedLoadPreviousSessionRef.current,hasUserMessage:hasUserMessageRef.current},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
+    
     if (!isMounted || !currentConversationId || !sessionId) {
       setIsLoadingPreviousSession(false)
       return
     }
     
+    // Don't load if we've already attempted or if user has sent a message
+    if (hasAttemptedLoadPreviousSessionRef.current || hasUserMessageRef.current) {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/a4da5d3d-11d9-4e33-afa5-dabc3a27a1de',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:429',message:'loadPreviousSession skipped - already attempted or user message sent',data:{hasAttemptedLoad:hasAttemptedLoadPreviousSessionRef.current,hasUserMessage:hasUserMessageRef.current},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+      // #endregion
+      setIsLoadingPreviousSession(false)
+      return
+    }
+    
+    // Check if this is a brand new conversation (just created, no user messages)
+    // If it's a new conversation, don't try to load previous session
+    const storedConversations = loadConversationsFromStorage()
+    const currentConversation = storedConversations.find(c => c.id === currentConversationId)
+    const isNewConversation = currentConversation && 
+      currentConversation.messages.length === 1 && 
+      currentConversation.messages[0].role === 'assistant' &&
+      currentConversation.messages[0].id?.startsWith('initial_')
+    
+    // Skip loading previous session for brand new conversations
+    if (isNewConversation) {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/a4da5d3d-11d9-4e33-afa5-dabc3a27a1de',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:444',message:'loadPreviousSession skipped - new conversation',data:{isNewConversation},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+      // #endregion
+      setIsLoadingPreviousSession(false)
+      return
+    }
+    
+    // Mark that we're attempting to load
+    hasAttemptedLoadPreviousSessionRef.current = true
+    
     const loadPreviousSession = async () => {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/a4da5d3d-11d9-4e33-afa5-dabc3a27a1de',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:452',message:'loadPreviousSession async function started',data:{sessionId,hasUserMessage:hasUserMessageRef.current},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+      // #endregion
       try {
         const response = await fetch(`${WEBHOOK_URL}?action=loadPreviousSession`, {
           method: 'POST',
@@ -442,10 +570,26 @@ export default function ChatPage() {
         }
         
         if (previousMessages && previousMessages.length > 0) {
-          setMessages(previousMessages)
+          // #region agent log
+          fetch('http://127.0.0.1:7242/ingest/a4da5d3d-11d9-4e33-afa5-dabc3a27a1de',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:490',message:'loadPreviousSession got previousMessages, about to check and set',data:{previousMessagesCount:previousMessages.length,hasUserMessage:hasUserMessageRef.current},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+          // #endregion
+          // Use function updater to get current messages state, not from dependency
+          setMessages(currentMessages => {
+            const currentHasUserMessage = currentMessages.some(msg => msg.role === 'user')
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/a4da5d3d-11d9-4e33-afa5-dabc3a27a1de',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:492',message:'loadPreviousSession setMessages function updater called',data:{currentMessagesCount:currentMessages.length,currentHasUserMessage,willOverwrite:!currentHasUserMessage},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+            // #endregion
+            if (!currentHasUserMessage) {
+              return previousMessages!
+            }
+            return currentMessages // Don't overwrite if user has sent a message
+          })
         }
       } catch (error) {
         console.error('Error loading previous session:', error)
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/a4da5d3d-11d9-4e33-afa5-dabc3a27a1de',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:500',message:'loadPreviousSession error',data:{error:String(error)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+        // #endregion
       } finally {
         setIsLoadingPreviousSession(false)
       }
@@ -510,11 +654,23 @@ export default function ChatPage() {
 
   const handleSend = async () => {
     const trimmedInput = inputValue.trim()
-    if (!trimmedInput || loadingConversationIds.has(currentConversationId!)) return
+    
+    // Add null check and ensure conversation is ready
+    if (!trimmedInput || !currentConversationId) return
+    if (loadingConversationIds.has(currentConversationId)) return
+    if (isLoadingPreviousSession) return // Prevent sending while loading previous session
+    
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/a4da5d3d-11d9-4e33-afa5-dabc3a27a1de',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:564',message:'handleSend called',data:{currentConversationId,hasUserMessageRef:hasUserMessageRef.current,hasAttemptedLoad:hasAttemptedLoadPreviousSessionRef.current,isLoadingPreviousSession,messagesCount:messages.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+    // #endregion
+    
+    // Set flag that user has sent a message
+    hasUserMessageRef.current = true
 
     const requestConversationId = currentConversationId
     const requestSessionId = sessionId
-    const requestMessages = [...messages] // Capture current messages state
+    // Capture original messages state for checking if it's first exchange (before user message added)
+    const originalMessages = [...messages]
 
     const userMessage: Message = {
       role: 'user',
@@ -524,19 +680,62 @@ export default function ChatPage() {
     }
 
     // Get the conversation from storage to ensure we have the latest messages
-    // Calculate updatedMessages using current conversations state
-    const existingConversation = conversations.find(c => c.id === requestConversationId)
-    const conversationMessages = existingConversation ? existingConversation.messages : requestMessages
-    const updatedMessages = [...conversationMessages, userMessage]
+    // Read from localStorage first to get the most up-to-date state
+    const storedConversations = loadConversationsFromStorage()
+    const storedConversation = storedConversations.find(c => c.id === requestConversationId)
+    // Prefer stored conversation messages (most up-to-date), fallback to current messages state
+    // Don't use latestMessagesRef here as it might be stale from a previous conversation
+    const baseMessages = storedConversation ? storedConversation.messages : originalMessages
+    const updatedMessages = [...baseMessages, userMessage]
     
+    // Use updatedMessages for API call (includes user message)
+    // CRITICAL: Always use updatedMessages directly to ensure user message is included
+    const requestMessages = updatedMessages
+    
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/a4da5d3d-11d9-4e33-afa5-dabc3a27a1de',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:682',message:'Computed updatedMessages',data:{baseMessagesCount:baseMessages.length,updatedMessagesCount:updatedMessages.length,requestMessagesCount:requestMessages.length,requestMessagesHasUser:requestMessages.some(m=>m.role==='user'),hasStoredConversation:!!storedConversation},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'G'})}).catch(()=>{});
+    // #endregion
+    
+    // Safety check: Ensure requestMessages includes the user message
+    if (!requestMessages.some(m => m.role === 'user')) {
+      console.error('CRITICAL: requestMessages missing user message!', {
+        baseMessagesCount: baseMessages.length,
+        updatedMessagesCount: updatedMessages.length,
+        requestMessagesCount: requestMessages.length,
+        hasStoredConversation: !!storedConversation,
+      })
+      // Force include user message
+      requestMessages.push(userMessage)
+    }
+    
+    // Update ref FIRST before setting sending flag (ensures effect has correct messages if it runs)
+    latestMessagesRef.current = updatedMessages
+    
+    // Set flag that we're sending a message (prevents saveConversation from overwriting)
+    // MUST be set AFTER updating latestMessagesRef so effect sees correct messages if it runs
+    isSendingMessageRef.current = true
+    
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/a4da5d3d-11d9-4e33-afa5-dabc3a27a1de',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:591',message:'About to setMessages with updatedMessages',data:{updatedMessagesCount:updatedMessages.length,hasUserMessage:updatedMessages.some(m=>m.role==='user'),requestConversationId,currentConversationIdRef:currentConversationIdRef.current},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+    // #endregion
     
     // Update current conversation's messages immediately if it's the active one
     // Use ref to get the CURRENT conversation ID (not stale closure value)
     if (requestConversationId === currentConversationIdRef.current) {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/a4da5d3d-11d9-4e33-afa5-dabc3a27a1de',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:661',message:'About to call setMessages',data:{updatedMessagesCount:updatedMessages.length,updatedMessageIds:updatedMessages.map(m=>m.id),currentConversationIdRef:currentConversationIdRef.current,requestConversationId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+      // #endregion
       setMessages(updatedMessages)
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/a4da5d3d-11d9-4e33-afa5-dabc3a27a1de',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:663',message:'setMessages called in handleSend',data:{updatedMessagesCount:updatedMessages.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+      // #endregion
+    } else {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/a4da5d3d-11d9-4e33-afa5-dabc3a27a1de',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:665',message:'setMessages NOT called - conversation mismatch',data:{requestConversationId,currentConversationIdRef:currentConversationIdRef.current},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+      // #endregion
     }
     
-    // Update conversation in storage
+    // Update conversation in storage and state
     setConversations((prevConversations) => {
       const updated = prevConversations.map(c => 
         c.id === requestConversationId 
@@ -553,6 +752,7 @@ export default function ChatPage() {
           sessionId: requestSessionId,
         })
       }
+      // Always save to localStorage to ensure persistence
       saveConversationsToStorage(updated)
       return updated
     })
@@ -573,6 +773,10 @@ export default function ChatPage() {
       console.log('Sending request to:', WEBHOOK_URL)
       console.log('Request body:', { ...requestBody, chatInput: trimmedInput.substring(0, 20) + '...' })
 
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/a4da5d3d-11d9-4e33-afa5-dabc3a27a1de',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:705',message:'About to call API',data:{requestConversationId,requestSessionId,requestMessagesCount:requestMessages.length,hasUserMessage:requestMessages.some(m=>m.role==='user')},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+      // #endregion
+      
       const response = await fetch(WEBHOOK_URL, {
         method: 'POST',
         headers: {
@@ -581,6 +785,9 @@ export default function ChatPage() {
         body: JSON.stringify(requestBody),
       })
 
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/a4da5d3d-11d9-4e33-afa5-dabc3a27a1de',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:714',message:'API response received',data:{ok:response.ok,status:response.status,statusText:response.statusText},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+      // #endregion
 
       if (!response.ok) {
         let errorText = 'Unknown error'
@@ -589,6 +796,10 @@ export default function ChatPage() {
         } catch (e) {
           console.error('Failed to read error response:', e)
         }
+        
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/a4da5d3d-11d9-4e33-afa5-dabc3a27a1de',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:722',message:'API error occurred',data:{status:response.status,statusText:response.statusText,errorText:errorText.substring(0,200),requestConversationId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+        // #endregion
         
         console.error('API Error:', {
           status: response.status,
@@ -669,8 +880,8 @@ export default function ChatPage() {
         
         // Generate AI title after first exchange (user message + assistant response)
         // Check if this is the first real exchange (after initial assistant message)
-        // Use requestMessages (captured at send time) to check original state
-        if (requestMessages.length === 1 && requestMessages[0].role === 'assistant' && requestConversationId) {
+        // Use originalMessages (captured before user message added) to check original state
+        if (originalMessages.length === 1 && originalMessages[0].role === 'assistant' && requestConversationId) {
           generateConversationTitleAI(finalMessages).then(title => {
             setConversations(prevConversations => {
               const updated = prevConversations.map(conv => 
@@ -684,8 +895,14 @@ export default function ChatPage() {
         
         return updated
       })
+      
+      // Reset sending flag after successful API call
+      isSendingMessageRef.current = false
     } catch (error) {
       console.error('Error sending message:', error)
+      
+      // Reset sending flag on error too
+      isSendingMessageRef.current = false
       
       // Provide more detailed error information
       let errorMessage: string = t.errorSendingMessage
@@ -771,6 +988,9 @@ export default function ChatPage() {
         }
         return newSet
       })
+      
+      // Ensure sending flag is reset in finally block
+      isSendingMessageRef.current = false
     }
   }
 
@@ -813,6 +1033,10 @@ export default function ChatPage() {
   }, [showConversationsDropdown])
 
   const handleNewConversation = () => {
+    // Reset flags for new conversation
+    hasUserMessageRef.current = false
+    hasAttemptedLoadPreviousSessionRef.current = false
+    initialMessageUpdatedRef.current = null // Reset so language effect can update initial message for new conversation
     
     const newConversationId = 'conv_' + Date.now()
     const newSessionId = generateSessionId()
@@ -855,6 +1079,13 @@ export default function ChatPage() {
       setMessages(conversation.messages)
       setSessionId(conversation.sessionId)
       setInputValue('')
+      
+      // Set flag based on whether conversation has user messages
+      const hasUserMessages = conversation.messages.some(msg => msg.role === 'user')
+      hasUserMessageRef.current = hasUserMessages
+      
+      // Reset the load attempt flag when switching conversations
+      hasAttemptedLoadPreviousSessionRef.current = false
       
       // Set isLoading based on whether the conversation we're switching to is currently loading
       const shouldBeLoading = loadingConversationIds.has(conversationId)
