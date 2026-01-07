@@ -1,0 +1,272 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  margin: 0;
+  padding: 0;
+}
+
+/* Markdown Styles - Enhanced Typography */
+.prose {
+  max-width: 100%;
+  color: inherit;
+  line-height: 1.75;
+}
+
+/* Paragraphs */
+.prose p {
+  @apply my-4 leading-relaxed;
+  font-size: 0.9375rem;
+}
+
+.prose p:first-child {
+  @apply mt-0;
+}
+
+.prose p:last-child {
+  @apply mb-0;
+}
+
+/* Headings */
+.prose h1 {
+  @apply text-2xl font-bold mt-8 mb-4 leading-tight;
+  color: inherit;
+}
+
+.prose h2 {
+  @apply text-xl font-bold mt-7 mb-3 leading-tight;
+  color: inherit;
+}
+
+.prose h3 {
+  @apply text-lg font-semibold mt-6 mb-3 leading-snug;
+  color: inherit;
+}
+
+.prose h4 {
+  @apply text-base font-semibold mt-5 mb-2 leading-snug;
+  color: inherit;
+}
+
+.prose h1:first-child,
+.prose h2:first-child,
+.prose h3:first-child,
+.prose h4:first-child {
+  @apply mt-0;
+}
+
+/* Links */
+.prose a {
+  @apply text-[#6c6ccb] hover:text-[#5c5cbb] font-medium transition-colors;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.prose a:hover {
+  text-decoration-thickness: 2px;
+}
+
+/* Lists */
+.prose ul {
+  @apply my-5 pl-6 space-y-2;
+  list-style-type: disc;
+}
+
+.prose ol {
+  @apply my-5 pl-6 space-y-2;
+  list-style-type: decimal;
+}
+
+.prose li {
+  @apply my-2 leading-relaxed;
+  padding-left: 0.25rem;
+}
+
+.prose li::marker {
+  @apply text-gray-500;
+}
+
+.prose li p {
+  @apply my-2;
+}
+
+.prose li p:first-child {
+  @apply mt-0;
+}
+
+.prose li p:last-child {
+  @apply mb-0;
+}
+
+.prose ul ul,
+.prose ol ol,
+.prose ul ol,
+.prose ol ul {
+  @apply my-3 ml-4;
+}
+
+/* Code */
+.prose code {
+  @apply bg-gray-100 text-gray-800 px-1.5 py-0.5 rounded text-sm font-mono;
+  font-size: 0.875em;
+  word-break: break-word;
+}
+
+.prose pre {
+  @apply bg-gray-900 text-gray-100 rounded-lg p-4 overflow-x-auto my-5;
+  font-size: 0.875rem;
+  line-height: 1.7;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.prose pre code {
+  @apply bg-transparent text-gray-100 p-0;
+  font-size: inherit;
+  word-break: normal;
+  white-space: pre;
+}
+
+.prose code::before,
+.prose code::after {
+  content: '';
+}
+
+/* Blockquotes */
+.prose blockquote {
+  @apply border-l-4 border-gray-300 pl-5 pr-4 py-2 my-5 italic;
+  background-color: rgba(0, 0, 0, 0.02);
+  border-radius: 0 4px 4px 0;
+}
+
+.prose blockquote p {
+  @apply my-2;
+}
+
+.prose blockquote p:first-child {
+  @apply mt-0;
+}
+
+.prose blockquote p:last-child {
+  @apply mb-0;
+}
+
+.prose blockquote > :first-child {
+  @apply mt-0;
+}
+
+.prose blockquote > :last-child {
+  @apply mb-0;
+}
+
+/* Tables */
+.prose table {
+  @apply w-full border-collapse my-5;
+  font-size: 0.9375rem;
+}
+
+.prose thead {
+  @apply border-b-2 border-gray-300;
+}
+
+.prose th {
+  @apply bg-gray-100 font-semibold px-4 py-3 text-left;
+  text-align: left;
+}
+
+.prose td {
+  @apply border-b border-gray-200 px-4 py-3;
+}
+
+.prose tbody tr:hover {
+  @apply bg-gray-50;
+}
+
+.prose tbody tr:last-child td {
+  @apply border-b-0;
+}
+
+/* Horizontal Rules */
+.prose hr {
+  @apply my-8 border-0 border-t border-gray-300;
+}
+
+/* Strong and Emphasis */
+.prose strong {
+  @apply font-bold text-gray-900;
+}
+
+.prose em {
+  @apply italic;
+}
+
+/* Images */
+.prose img {
+  @apply my-5 rounded-lg;
+  max-width: 100%;
+  height: auto;
+}
+
+/* Task Lists (GitHub Flavored Markdown) */
+.prose input[type="checkbox"] {
+  @apply mr-2 mt-1;
+  accent-color: #6c6ccb;
+}
+
+/* Dark mode prose styles */
+.dark .prose {
+  color: inherit;
+}
+
+.dark .prose code {
+  @apply bg-gray-700 text-gray-100;
+}
+
+.dark .prose pre {
+  @apply bg-gray-900 border-gray-700;
+}
+
+.dark .prose pre code {
+  @apply text-gray-100;
+}
+
+.dark .prose blockquote {
+  @apply border-gray-600;
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.dark .prose th {
+  @apply bg-gray-800 border-gray-700 text-gray-200;
+}
+
+.dark .prose td {
+  @apply border-gray-700;
+}
+
+.dark .prose tbody tr:hover {
+  @apply bg-gray-800;
+}
+
+.dark .prose thead {
+  @apply border-gray-700;
+}
+
+.dark .prose hr {
+  @apply border-gray-700;
+}
+
+.dark .prose li::marker {
+  @apply text-gray-400;
+}
+
+.dark .prose strong {
+  @apply text-gray-100;
+}
+
+.dark .prose h1,
+.dark .prose h2,
+.dark .prose h3,
+.dark .prose h4 {
+  @apply text-gray-100;
+}
+
