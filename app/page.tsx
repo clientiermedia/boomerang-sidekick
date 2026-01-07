@@ -248,6 +248,10 @@ export default function ChatPage() {
   }
 
   const scrollToBottom = () => {
+    // Don't scroll if input is focused on mobile (prevents unwanted scrolling when keyboard appears)
+    if (inputRef.current === document.activeElement && window.innerWidth < 640) {
+      return
+    }
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }
 
@@ -1765,6 +1769,28 @@ export default function ChatPage() {
                   value={inputValue}
                   onChange={(e) => setInputValue(e.target.value)}
                   onKeyDown={handleKeyDown}
+                  onFocus={(e) => {
+                    // Prevent unwanted centering scroll when keyboard appears on mobile
+                    if (window.innerWidth < 640) {
+                      // Store current scroll position
+                      const scrollY = window.scrollY
+                      
+                      // Use requestAnimationFrame to prevent browser's auto-scroll
+                      requestAnimationFrame(() => {
+                        // Only restore scroll if it changed significantly (browser tried to center)
+                        const newScrollY = window.scrollY
+                        const scrollDiff = Math.abs(newScrollY - scrollY)
+                        
+                        // If browser scrolled more than 100px (trying to center), restore position
+                        if (scrollDiff > 100) {
+                          window.scrollTo({
+                            top: scrollY,
+                            behavior: 'auto'
+                          })
+                        }
+                      })
+                    }
+                  }}
                   placeholder={t.typeYourMessage}
                   className={`w-full resize-none border rounded-xl px-3 sm:px-4 py-2.5 sm:py-3 focus:outline-none focus:ring-2 focus:ring-[#6c6ccb]/20 focus:border-[#6c6ccb] transition-all text-sm sm:text-base leading-relaxed ${
                     settings.darkMode

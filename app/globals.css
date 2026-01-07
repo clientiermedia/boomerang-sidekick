@@ -59,6 +59,16 @@ body {
   .flex-1 {
     min-height: 0;
   }
+  
+  /* Prevent unwanted scrolling when keyboard appears on mobile */
+  textarea:focus {
+    scroll-margin: 0;
+  }
+  
+  /* Prevent auto-scroll to center on mobile when input is focused */
+  html {
+    scroll-behavior: auto;
+  }
 }
 
 /* Markdown Styles - Enhanced Typography */
