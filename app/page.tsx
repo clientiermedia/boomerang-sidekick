@@ -170,8 +170,12 @@ export default function ChatPage() {
   const [selectedConversationIds, setSelectedConversationIds] = useState<Set<string>>(new Set())
   const [showConversationsDropdown, setShowConversationsDropdown] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const messagesContainerRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const conversationsDropdownRef = useRef<HTMLDivElement>(null)
+  const scrollLockRef = useRef<boolean>(false) // Lock scroll position during AI response render
+  const lockedScrollPositionRef = useRef<number>(0) // Store scroll position when locked
+  const scrollPositionBeforeSendRef = useRef<number | null>(null) // Store scroll position before sending message
   // Ref to track current conversation ID for async operations (prevents stale closure issues)
   const currentConversationIdRef = useRef<string | null>(null)
   // Ref to track if user has sent a message (prevents overwriting with previous session)
@@ -256,11 +260,42 @@ export default function ChatPage() {
   }
 
   const scrollToBottom = () => {
+    // Don't scroll if scroll is locked (during AI response render)
+    if (scrollLockRef.current && messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTop = lockedScrollPositionRef.current
+      return
+    }
+    
     // Don't scroll if input is focused on mobile (prevents unwanted scrolling when keyboard appears)
     if (inputRef.current === document.activeElement && window.innerWidth < 640) {
       return
     }
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    // On mobile, don't scroll if we only have 2 messages (initial + user) - prevents jumping back to top
+    if (window.innerWidth < 640 && messages.length === 2 && messages[0]?.id?.startsWith('initial_') && messages[1]?.role === 'user') {
+      return
+    }
+    // On mobile, don't auto-scroll when AI response first appears (3 messages) - let user scroll manually
+    // This prevents the jump to top that happens when padding is removed
+    if (window.innerWidth < 640 && messages.length === 3 && messages[0]?.id?.startsWith('initial_') && messages[1]?.role === 'user' && messages[2]?.role === 'assistant') {
+      return
+    }
+    // Use container scroll instead of scrollIntoView to avoid page-level scrolling on mobile
+    if (messagesContainerRef.current) {
+      // Use requestAnimationFrame to ensure DOM has updated before scrolling
+      requestAnimationFrame(() => {
+        if (messagesContainerRef.current) {
+          const container = messagesContainerRef.current
+          const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 100
+          
+          // Only scroll if user is already near bottom (within 100px) to prevent jumping
+          if (isNearBottom || window.innerWidth >= 640) {
+            container.scrollTop = container.scrollHeight
+          }
+        }
+      })
+    } else {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    }
   }
 
   // Toast notification system
@@ -361,7 +396,99 @@ export default function ChatPage() {
   }, [isMounted])
 
   useEffect(() => {
-    scrollToBottom()
+    // On mobile, skip scrolling if we only have 2 messages (initial + user) to prevent jumping back to top
+    if (window.innerWidth < 640 && messages.length === 2 && messages[0]?.id?.startsWith('initial_') && messages[1]?.role === 'user') {
+      // Restore scroll position that was captured before setMessages in handleSend
+      const savedScrollTop = scrollPositionBeforeSendRef.current ?? messagesContainerRef.current?.scrollTop ?? 0
+      
+      // Restore scroll position after render to prevent jump
+      if (savedScrollTop > 0 && messagesContainerRef.current) {
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            if (messagesContainerRef.current) {
+              const currentScroll = messagesContainerRef.current.scrollTop
+              if (currentScroll !== savedScrollTop) {
+                messagesContainerRef.current.scrollTop = savedScrollTop
+              }
+            }
+          })
+        })
+      }
+      
+      // Clear the ref after using it
+      scrollPositionBeforeSendRef.current = null
+      
+      return
+    }
+    // On mobile, skip scrolling when AI response first appears (3 messages) - prevents jump when padding is removed
+    if (window.innerWidth < 640 && messages.length === 3 && messages[0]?.id?.startsWith('initial_') && messages[1]?.role === 'user' && messages[2]?.role === 'assistant') {
+      // Get scroll position from ref (captured before setMessages) or current position
+      const containerScrollTop = scrollPositionBeforeSendRef.current ?? messagesContainerRef.current?.scrollTop ?? 0
+      const pageScrollY = window.scrollY
+      const isInputFocused = inputRef.current === document.activeElement
+      
+      // Lock scroll position immediately to prevent any jumps during content rendering
+      scrollLockRef.current = true
+      lockedScrollPositionRef.current = containerScrollTop
+      
+      // Clear the ref after using it
+      scrollPositionBeforeSendRef.current = null
+      
+      // If input is focused, blur it temporarily to prevent browser auto-scroll
+      if (isInputFocused && inputRef.current) {
+        inputRef.current.blur()
+        
+        // Re-focus after a brief delay if user was typing
+        setTimeout(() => {
+          if (inputRef.current && inputValue.length > 0) {
+            inputRef.current.focus()
+          }
+        }, 100)
+      }
+      
+      // Continuously lock scroll position during content rendering
+      const lockScroll = () => {
+        if (scrollLockRef.current && messagesContainerRef.current) {
+          const currentScroll = messagesContainerRef.current.scrollTop
+          if (Math.abs(currentScroll - lockedScrollPositionRef.current) > 5) {
+            messagesContainerRef.current.scrollTop = lockedScrollPositionRef.current
+          }
+          requestAnimationFrame(lockScroll)
+        }
+      }
+      
+      // Start locking scroll immediately
+      requestAnimationFrame(lockScroll)
+      
+      // Also lock page-level scroll if needed
+      if (pageScrollY > 0) {
+        const lockPageScroll = () => {
+          if (scrollLockRef.current && window.scrollY !== pageScrollY) {
+            window.scrollTo(0, pageScrollY)
+            requestAnimationFrame(lockPageScroll)
+          }
+        }
+        requestAnimationFrame(lockPageScroll)
+      }
+      
+      // Release lock after content has stabilized (1.5 seconds to account for streaming)
+      setTimeout(() => {
+        scrollLockRef.current = false
+      }, 1500)
+      
+      return
+    }
+    // On mobile, delay scroll to ensure DOM has fully updated, especially after AI response
+    if (window.innerWidth < 640) {
+      // Use double requestAnimationFrame to ensure content is rendered
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          scrollToBottom()
+        })
+      })
+    } else {
+      scrollToBottom()
+    }
   }, [messages])
 
   // Keep the ref in sync with state for async operations
@@ -376,25 +503,13 @@ export default function ChatPage() {
 
   // Update initial message when language changes
   useEffect(() => {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/a4da5d3d-11d9-4e33-afa5-dabc3a27a1de',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:373',message:'language effect triggered',data:{isMounted,currentConversationId,messagesCount:messages.length,isSending:isSendingMessageRef.current,hasUserMessage:messages.some(m=>m.role==='user'),alreadyUpdated:initialMessageUpdatedRef.current===currentConversationId,languageUpdated:initialMessageLanguageRef.current===language},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'F'})}).catch(()=>{});
-    // #endregion
-    
     if (!isMounted || !currentConversationId) return
     
     // Skip if we're sending a message (don't overwrite user's message)
-    if (isSendingMessageRef.current) {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/a4da5d3d-11d9-4e33-afa5-dabc3a27a1de',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:378',message:'language effect skipped - isSending',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'F'})}).catch(()=>{});
-      // #endregion
-      return
-    }
+    if (isSendingMessageRef.current) return
     
     // Skip if we've already updated the initial message for this conversation AND language
     if (initialMessageUpdatedRef.current === currentConversationId && initialMessageLanguageRef.current === language) {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/a4da5d3d-11d9-4e33-afa5-dabc3a27a1de',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:384',message:'language effect skipped - already updated',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'F'})}).catch(()=>{});
-      // #endregion
       return
     }
     
@@ -408,9 +523,6 @@ export default function ChatPage() {
     const expectedContent = t.initialMessage
     
     if (hasOnlyInitialMessage && currentContent !== expectedContent) {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/a4da5d3d-11d9-4e33-afa5-dabc3a27a1de',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:393',message:'language effect updating initial message',data:{hasOnlyInitialMessage,currentContent:currentContent.substring(0,50),expectedContent:expectedContent.substring(0,50)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'F'})}).catch(()=>{});
-      // #endregion
       const updatedInitialMessage: Message = {
         role: 'assistant',
         content: t.initialMessage,
@@ -430,29 +542,17 @@ export default function ChatPage() {
   // Update ref whenever messages change
   useEffect(() => {
     latestMessagesRef.current = messages
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/a4da5d3d-11d9-4e33-afa5-dabc3a27a1de',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:393',message:'messages state changed',data:{messagesCount:messages.length,hasUserMessage:messages.some(m=>m.role==='user'),currentConversationId,messageIds:messages.map(m=>m.id)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
-    // #endregion
   }, [messages, currentConversationId])
 
   // Save current conversation whenever messages change
   useEffect(() => {
     // Check flag FIRST before doing anything else
-    if (isSendingMessageRef.current) {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/a4da5d3d-11d9-4e33-afa5-dabc3a27a1de',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:398',message:'saveConversation skipped - isSending (early check)',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-      // #endregion
-      return
-    }
+    if (isSendingMessageRef.current) return
     
     if (!isMounted || !currentConversationId) return
     
     // Use ref to get latest messages to avoid stale closure - ALWAYS use ref, never messages prop
     const currentMessages = latestMessagesRef.current.length > 0 ? latestMessagesRef.current : messages
-    
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/a4da5d3d-11d9-4e33-afa5-dabc3a27a1de',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:398',message:'saveConversation effect triggered',data:{isMounted,currentConversationId,messagesCount:messages.length,refMessagesCount:latestMessagesRef.current.length,currentMessagesCount:currentMessages.length,hasUserMessage:currentMessages.some(m=>m.role==='user'),isSending:isSendingMessageRef.current},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-    // #endregion
     
     // Read from localStorage to ensure we have the latest state
     // This prevents race conditions where conversations state might be stale
@@ -467,10 +567,6 @@ export default function ChatPage() {
       messages: currentMessages,
       sessionId: sessionId,
     }
-    
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/a4da5d3d-11d9-4e33-afa5-dabc3a27a1de',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:398',message:'saveConversation about to save',data:{conversationDataMessagesCount:conversationData.messages.length,storedConversationMessagesCount:conversationIndex>=0?storedConversations[conversationIndex].messages.length:0},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-    // #endregion
     
     const updatedConversations = [...storedConversations]
     if (conversationIndex >= 0) {
@@ -489,10 +585,6 @@ export default function ChatPage() {
 
   // Load previous session from API when conversation is loaded
   useEffect(() => {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/a4da5d3d-11d9-4e33-afa5-dabc3a27a1de',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:422',message:'loadPreviousSession effect triggered',data:{isMounted,currentConversationId,sessionId,hasAttemptedLoad:hasAttemptedLoadPreviousSessionRef.current,hasUserMessage:hasUserMessageRef.current},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-    // #endregion
-    
     if (!isMounted || !currentConversationId || !sessionId) {
       setIsLoadingPreviousSession(false)
       return
@@ -500,9 +592,6 @@ export default function ChatPage() {
     
     // Don't load if we've already attempted or if user has sent a message
     if (hasAttemptedLoadPreviousSessionRef.current || hasUserMessageRef.current) {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/a4da5d3d-11d9-4e33-afa5-dabc3a27a1de',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:429',message:'loadPreviousSession skipped - already attempted or user message sent',data:{hasAttemptedLoad:hasAttemptedLoadPreviousSessionRef.current,hasUserMessage:hasUserMessageRef.current},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-      // #endregion
       setIsLoadingPreviousSession(false)
       return
     }
@@ -518,9 +607,6 @@ export default function ChatPage() {
     
     // Skip loading previous session for brand new conversations
     if (isNewConversation) {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/a4da5d3d-11d9-4e33-afa5-dabc3a27a1de',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:444',message:'loadPreviousSession skipped - new conversation',data:{isNewConversation},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-      // #endregion
       setIsLoadingPreviousSession(false)
       return
     }
@@ -529,9 +615,6 @@ export default function ChatPage() {
     hasAttemptedLoadPreviousSessionRef.current = true
     
     const loadPreviousSession = async () => {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/a4da5d3d-11d9-4e33-afa5-dabc3a27a1de',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:452',message:'loadPreviousSession async function started',data:{sessionId,hasUserMessage:hasUserMessageRef.current},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-      // #endregion
       try {
         const response = await fetch(`${WEBHOOK_URL}?action=loadPreviousSession`, {
           method: 'POST',
@@ -570,15 +653,9 @@ export default function ChatPage() {
         }
         
         if (previousMessages && previousMessages.length > 0) {
-          // #region agent log
-          fetch('http://127.0.0.1:7242/ingest/a4da5d3d-11d9-4e33-afa5-dabc3a27a1de',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:490',message:'loadPreviousSession got previousMessages, about to check and set',data:{previousMessagesCount:previousMessages.length,hasUserMessage:hasUserMessageRef.current},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-          // #endregion
           // Use function updater to get current messages state, not from dependency
           setMessages(currentMessages => {
             const currentHasUserMessage = currentMessages.some(msg => msg.role === 'user')
-            // #region agent log
-            fetch('http://127.0.0.1:7242/ingest/a4da5d3d-11d9-4e33-afa5-dabc3a27a1de',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:492',message:'loadPreviousSession setMessages function updater called',data:{currentMessagesCount:currentMessages.length,currentHasUserMessage,willOverwrite:!currentHasUserMessage},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-            // #endregion
             if (!currentHasUserMessage) {
               return previousMessages!
             }
@@ -587,9 +664,6 @@ export default function ChatPage() {
         }
       } catch (error) {
         console.error('Error loading previous session:', error)
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/a4da5d3d-11d9-4e33-afa5-dabc3a27a1de',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:500',message:'loadPreviousSession error',data:{error:String(error)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-        // #endregion
       } finally {
         setIsLoadingPreviousSession(false)
       }
@@ -660,10 +734,6 @@ export default function ChatPage() {
     if (loadingConversationIds.has(currentConversationId)) return
     if (isLoadingPreviousSession) return // Prevent sending while loading previous session
     
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/a4da5d3d-11d9-4e33-afa5-dabc3a27a1de',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:564',message:'handleSend called',data:{currentConversationId,hasUserMessageRef:hasUserMessageRef.current,hasAttemptedLoad:hasAttemptedLoadPreviousSessionRef.current,isLoadingPreviousSession,messagesCount:messages.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-    // #endregion
-    
     // Set flag that user has sent a message
     hasUserMessageRef.current = true
 
@@ -692,10 +762,6 @@ export default function ChatPage() {
     // CRITICAL: Always use updatedMessages directly to ensure user message is included
     const requestMessages = updatedMessages
     
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/a4da5d3d-11d9-4e33-afa5-dabc3a27a1de',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:682',message:'Computed updatedMessages',data:{baseMessagesCount:baseMessages.length,updatedMessagesCount:updatedMessages.length,requestMessagesCount:requestMessages.length,requestMessagesHasUser:requestMessages.some(m=>m.role==='user'),hasStoredConversation:!!storedConversation},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'G'})}).catch(()=>{});
-    // #endregion
-    
     // Safety check: Ensure requestMessages includes the user message
     if (!requestMessages.some(m => m.role === 'user')) {
       console.error('CRITICAL: requestMessages missing user message!', {
@@ -715,24 +781,15 @@ export default function ChatPage() {
     // MUST be set AFTER updating latestMessagesRef so effect sees correct messages if it runs
     isSendingMessageRef.current = true
     
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/a4da5d3d-11d9-4e33-afa5-dabc3a27a1de',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:591',message:'About to setMessages with updatedMessages',data:{updatedMessagesCount:updatedMessages.length,hasUserMessage:updatedMessages.some(m=>m.role==='user'),requestConversationId,currentConversationIdRef:currentConversationIdRef.current},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-    // #endregion
-    
     // Update current conversation's messages immediately if it's the active one
     // Use ref to get the CURRENT conversation ID (not stale closure value)
     if (requestConversationId === currentConversationIdRef.current) {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/a4da5d3d-11d9-4e33-afa5-dabc3a27a1de',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:661',message:'About to call setMessages',data:{updatedMessagesCount:updatedMessages.length,updatedMessageIds:updatedMessages.map(m=>m.id),currentConversationIdRef:currentConversationIdRef.current,requestConversationId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
-      // #endregion
+      // On mobile, capture scroll position BEFORE setMessages to prevent jump
+      if (window.innerWidth < 640 && messagesContainerRef.current) {
+        scrollPositionBeforeSendRef.current = messagesContainerRef.current.scrollTop
+      }
+      
       setMessages(updatedMessages)
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/a4da5d3d-11d9-4e33-afa5-dabc3a27a1de',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:663',message:'setMessages called in handleSend',data:{updatedMessagesCount:updatedMessages.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
-      // #endregion
-    } else {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/a4da5d3d-11d9-4e33-afa5-dabc3a27a1de',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:665',message:'setMessages NOT called - conversation mismatch',data:{requestConversationId,currentConversationIdRef:currentConversationIdRef.current},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
-      // #endregion
     }
     
     // Update conversation in storage and state
@@ -772,10 +829,6 @@ export default function ChatPage() {
       
       console.log('Sending request to:', WEBHOOK_URL)
       console.log('Request body:', { ...requestBody, chatInput: trimmedInput.substring(0, 20) + '...' })
-
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/a4da5d3d-11d9-4e33-afa5-dabc3a27a1de',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:705',message:'About to call API',data:{requestConversationId,requestSessionId,requestMessagesCount:requestMessages.length,hasUserMessage:requestMessages.some(m=>m.role==='user')},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
-      // #endregion
       
       const response = await fetch(WEBHOOK_URL, {
         method: 'POST',
@@ -785,10 +838,6 @@ export default function ChatPage() {
         body: JSON.stringify(requestBody),
       })
 
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/a4da5d3d-11d9-4e33-afa5-dabc3a27a1de',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:714',message:'API response received',data:{ok:response.ok,status:response.status,statusText:response.statusText},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
-      // #endregion
-
       if (!response.ok) {
         let errorText = 'Unknown error'
         try {
@@ -796,10 +845,6 @@ export default function ChatPage() {
         } catch (e) {
           console.error('Failed to read error response:', e)
         }
-        
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/a4da5d3d-11d9-4e33-afa5-dabc3a27a1de',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:722',message:'API error occurred',data:{status:response.status,statusText:response.statusText,errorText:errorText.substring(0,200),requestConversationId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
-        // #endregion
         
         console.error('API Error:', {
           status: response.status,
@@ -839,6 +884,11 @@ export default function ChatPage() {
         id: 'msg_' + Date.now() + '_' + Math.random().toString(36).substring(7),
       }
 
+      // On mobile, capture scroll position RIGHT BEFORE adding AI response
+      // This is the critical moment - capture scroll before React re-renders with new content
+      if (window.innerWidth < 640 && messagesContainerRef.current && requestConversationId === currentConversationIdRef.current) {
+        scrollPositionBeforeSendRef.current = messagesContainerRef.current.scrollTop
+      }
 
       // Always update the conversation that sent the request, regardless of current conversation
       // Read the conversation from storage to get the latest messages (including the user message we just added)
@@ -1737,11 +1787,12 @@ export default function ChatPage() {
         {/* Chat Messages Area */}
         {!isSelectionMode && (
         <div 
+          ref={messagesContainerRef}
           className={`flex-1 overflow-y-auto overflow-x-hidden px-3 md:px-4 py-2 sm:py-4 md:py-6 relative min-h-0 ${
             settings.darkMode 
               ? 'bg-gray-900' 
               : ''
-          } ${messages.length <= 1 && !isLoading && !isLoadingPreviousSession ? 'pt-16 sm:pt-2' : ''}`}
+          } pt-16 sm:pt-2`}
           style={settings.darkMode ? {} : {
             background: `
               linear-gradient(to right, 
@@ -1752,7 +1803,7 @@ export default function ChatPage() {
                 rgba(108, 108, 203, 0.15) 100%
               ),
               white
-            `,
+            `
           }}
         >
           {/* SVG Background Panel - positioned top right */}
