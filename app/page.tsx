@@ -1506,7 +1506,7 @@ export default function ChatPage() {
             settings.darkMode 
               ? 'bg-gray-900' 
               : ''
-          }`}
+          } ${messages.length <= 1 && !isLoading && !isLoadingPreviousSession ? 'pt-16 sm:pt-2' : ''}`}
           style={settings.darkMode ? {} : {
             background: `
               linear-gradient(to right, 
@@ -1790,6 +1790,7 @@ export default function ChatPage() {
                 style={{
                   width: '44px',
                   height: '44px',
+                  transform: 'translateY(-3px)',
                 }}
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
