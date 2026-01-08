@@ -39,7 +39,7 @@ export const translations = {
     question4: 'How can I join the Collective?',
     
     // Initial Message
-    initialMessage: "Hi, I'm Boomerang Sidekick. I can help you understand Boomerang training, meetings, and how the Collective works.",
+    initialMessage: "Hi, welcome to Boomerang Sidekick, Please ask your Boomerang question here... (This is the Beta version, please report useful feedback to admin@boomerang-bc.nl, thank you)",
     
     // Actions
     copy: 'Copy',
@@ -130,7 +130,7 @@ export const translations = {
     question4: 'Hoe kan ik meedoen aan het Collectief?',
     
     // Initial Message
-    initialMessage: 'Hoi, ik ben Boomerang Sidekick. Ik kan je helpen om Boomerang training, vergaderingen en hoe het Collectief werkt te begrijpen.',
+    initialMessage: 'Hoi, welkom bij Boomerang Sidekick. Stel hier je vraag over Boomerang... (Dit is de Beta versie, we ontvangen graag je feedback via admin@boomerang-bc.nl)',
     
     // Actions
     copy: 'Kopiëren',
