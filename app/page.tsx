@@ -35,7 +35,7 @@ type Settings = {
   darkMode: boolean
 }
 
-const WEBHOOK_URL = 'https://vmi2979892.contaboserver.net/webhook/987b25c6-ca22-41db-83e3-d672e44787f9/chat'
+const WEBHOOK_URL = 'https://vmi2979892.contaboserver.net/webhook/028953ec-171c-4fa9-b511-1c8be9be92cc/chat'
 const TITLE_GENERATION_WEBHOOK_URL = 'https://vmi2979892.contaboserver.net/webhook/generate-chat-title'
 const CONVERSATIONS_STORAGE_KEY = 'boomerang-sidekick-conversations'
 const CURRENT_CONVERSATION_KEY = 'boomerang-sidekick-current-conversation'
